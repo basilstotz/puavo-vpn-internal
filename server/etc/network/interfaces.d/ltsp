@@ -1,0 +1,11 @@
+# Bridge setup
+
+iface ltsp inet static
+    pre-up ifup wg0
+    bridge_ports wg0 eth1
+#    address 192.168.1.2
+#    broadcast 192.168.1.255
+#    netmask 255.255.255.0
+#    gateway 192.168.1.1
+     post-down ifdown wg0
+
