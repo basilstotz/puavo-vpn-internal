@@ -8,7 +8,6 @@ ans=$(puavo-conf puavo.image.servers)
 for s in $ans;do
     echo $s | grep -q ':876' && endpoint=$s
 done
-
 if test -n "$endpoint";then
     $server=$(echo $endpoint | xargs | cut d: -f1)
 else
@@ -38,7 +37,7 @@ wg set wg0 peer "$public_key" allowed-ips $next_ip/32 2>/dev/null && echo "OK:$(
 EOF
 chmod +x $server_prog
 
-$client_prog="/tmp/puavo-vpn-internal-cleint.sh"
+$client_prog="/tmp/puavo-vpn-internal-client.sh"
 cat <<EOF > $client_prog
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
@@ -67,17 +66,17 @@ fi
 EOF
 chmod +x $client_prog
 
-
 if test -n "$server";then
     case $(puavo-conf puavo.hosttype); in
 	laptop)
             $client_prog 
 	;;
 	bootserver)
-	    bridge show link|grep -q ltsp || exit 1
-	    $server_prog &
-	    ip add addr 0.0.0.0 dev ltsp
-	    bridge add port ltsp wg0
+	    if bridge show link|grep -q ltsp;then
+		$server_prog &
+	        ip add addr 0.0.0.0 dev ltsp
+	        bridge add port ltsp wg0
+	    fi
 	;;
 	*)
 	;;
