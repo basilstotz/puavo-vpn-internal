@@ -2,19 +2,32 @@
 
 #https://git.zx2c4.com/wireguard-tools/plain/contrib/ncat-client-server/
 
-
+#check hosttype
+hosttype=$(puavo-conf puavo.hosttype)
+case $hosttype in
+    laptop|bootserver)
+	break;
+	;;
+    *)
+	sleep 999999999999999999999999999
+	;;
+esac
+#check server
 endpoint=""
 ans=$(puavo-conf puavo.image.servers)
 for s in $ans;do
-    echo $s | grep -q ':876' && endpoint=$s
+    echo "$s" | grep -q ':876' && endpoint=$s
 done
+#check endpoint
 if test -n "$endpoint";then
-    $server=$(echo $endpoint | xargs | cut d: -f1)
+    server=$(echo "$endpoint" | xargs | cut d: -f1)
 else
-    $server=""
+    sleep 999999999999999999
 fi
 
-$server_prog="/tmp/puavo-vpn-internal-server.sh"
+#ok there we go ....
+
+server_prog="/tmp/puavo-vpn-internal-server.sh"
 cat <<EOF > $server_prog
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
@@ -37,7 +50,7 @@ wg set wg0 peer "$public_key" allowed-ips $next_ip/32 2>/dev/null && echo "OK:$(
 EOF
 chmod +x $server_prog
 
-$client_prog="/tmp/puavo-vpn-internal-client.sh"
+client_prog="/tmp/puavo-vpn-internal-client.sh"
 cat <<EOF > $client_prog
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
@@ -66,22 +79,23 @@ fi
 EOF
 chmod +x $client_prog
 
-if test -n "$server";then
-    case $(puavo-conf puavo.hosttype); in
-	laptop)
-            fping -a $server 2>&1 >/dev/null && $client_prog 
-	;;
-	bootserver)
-	    if bridge show link|grep -q ltsp;then
-		$server_prog &
-	        ip add addr 0.0.0.0 dev ltsp
-	        bridge add port ltsp wg0
-	    fi
-	;;
-	*)
-	;;
-    esac
-fi
+#main
+case $hosttype in
+    laptop)
+        fping -a "$server" >/dev/null 2>&1 && $client_prog 
+    ;;
+    bootserver)
+	if bridge show link|grep -q ltsp;then
+	    $server_prog &
+	    sleep 1
+	    ip add addr 0.0.0.0 dev ltsp
+	    bridge add port ltsp wg0
+	fi
+    ;;    
+    *)
+            #should never happen	
+    ;;
+esac
 
 sleep 999999999999999999999
 exit 1
