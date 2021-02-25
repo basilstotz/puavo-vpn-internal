@@ -16,7 +16,7 @@ esac
 endpoint=""
 ans=$(puavo-conf puavo.image.servers)
 for s in $ans;do
-    echo "$s" | grep -q ':876' && endpoint=$s
+    echo "$s" | grep -q ':872' && endpoint=$s
 done
 #check endpoint
 if test -n "$endpoint";then
@@ -85,11 +85,11 @@ case $hosttype in
         fping -a "$server" >/dev/null 2>&1 && $client_prog 
     ;;
     bootserver)
-	if bridge show link|grep -q ltsp;then
+	if brctl show link|grep -q ltsp;then
 	    $server_prog &
 	    sleep 1
-	    ip add addr 0.0.0.0 dev ltsp
-	    bridge add port ltsp wg0
+	    ip addr flush dev ltsp
+	    brctl addif ltsp wg0
 	fi
     ;;    
     *)
