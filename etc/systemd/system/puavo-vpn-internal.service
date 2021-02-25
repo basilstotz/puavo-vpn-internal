@@ -1,0 +1,9 @@
+[Unit]
+Description=Simple WSGI Server
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/puavo-vpn-internal
+
+[Install]
+WantedBy=multi-user.target
