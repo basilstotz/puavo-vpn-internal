@@ -25,66 +25,22 @@ else
     sleep 999999999999999999
 fi
 
+
+make_module(){
+    apt-get -y install wireguard-dkms
+}
+
+
 #ok there we go ....
-
-server_prog="/tmp/puavo-vpn-internal-server.sh"
-cat <<EOF > $server_prog
-#!/bin/bash
-# SPDX-License-Identifier: GPL-2.0
-#
-# Copyright (C) 2015-2020 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
-
-if [[ -z $NCAT_REMOTE_ADDR ]]; then
-ip link del dev wg0 2>/dev/null
-set -e
-ip link add dev wg0 type wireguard
-ip address add 10.249.15.254 dev wg0
-wg set wg0 private-key <(wg genkey) listen-port 12912
-ip link set up dev wg0
-exec ncat -e "$(readlink -f "$0")" -k -l -p 42912 -v
-fi
-read -r public_key
-[[ $(wg show wg0 peers | wc -l) -ge 253 ]] && wg set wg0 peer $(wg show wg0 latest-handshakes | sort -k 2 -b -n | head -n 1 | cut -f 1) remove
-next_ip=$(all="$(wg show wg0 allowed-ips)"; for ((i=1; i<=253; i++)); do ip="10.249.15.$i"; [[ $all != *$ip/32* ]] && echo $ip && break; done)
-wg set wg0 peer "$public_key" allowed-ips $next_ip/32 2>/dev/null && echo "OK:$(wg show wg0 private-key | wg pubkey):$(wg show wg0 listen-port):$next_ip" || echo ERROR
-EOF
-chmod +x $server_prog
-
-client_prog="/tmp/puavo-vpn-internal-client.sh"
-cat <<EOF > $client_prog
-#!/bin/bash
-# SPDX-License-Identifier: GPL-2.0
-#
-# Copyright (C) 2015-2020 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
-
-set -e
-[[ $UID == 0 ]] || { echo "You must be root to run this."; exit 1; }
-exec 3<>/dev/tcp/$server/42912
-privatekey="$(wg genkey)"
-wg pubkey <<<"$privatekey" >&3
-IFS=: read -r status server_pubkey server_port internal_ip <&3
-[[ $status == OK ]]
-ip link del dev wg0 2>/dev/null || true
-ip link add dev wg0 type wireguard
-wg set wg0 private-key <(echo "$privatekey") peer "$server_pubkey" allowed-ips 0.0.0.0/0 endpoint "$server:$server_port" persistent-keepalive 25
-ip address add "$internal_ip"/24 dev wg0
-ip link set up dev wg0
-
-if [ "$1" == "default-route" ]; then
-host="$(wg show wg0 endpoints | sed -n 's/.*\t\(.*\):.*/\1/p')"
-ip route add $(ip route get $host | sed '/ via [0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/{s/^\(.* via [0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\).*/\1/}' | head -n 1) 2>/dev/null || true
-ip route add 0/1 dev wg0
-ip route add 128/1 dev wg0
-fi
-EOF
-chmod +x $client_prog
-
-#main
+server_prog="/usr/local/lib/wireguard-tools/server.sh"
+client_prog="/usr/local/lib/wireguard-tools/client.sh"
 case $hosttype in
     laptop)
-        fping -a "$server" >/dev/null 2>&1 && $client_prog 
+        fping -a "$server" >/dev/null 2>&1 && $client_prog $server
     ;;
     bootserver)
+	modprobe wireguard >/dev/null 2>&1 || make_module
+	modprobe wireguard || { echo "no module"; sleep 999999999999999999999 }
 	if brctl show link|grep -q ltsp;then
 	    $server_prog &
 	    sleep 1
